@@ -1,0 +1,18 @@
+django-admin startproject ig5_eval
+python manage.py startapp eval
+
+python manage.py makemigrations eval
+python manage.py migrate
+python manage.py migrate eval zero
+
+python manage.py dbshell
+.tables
+.schema django_migrations
+select * from django_migrations where app == 'eval';
+select * from django_migrations where app == 'eval' and name like '%auto%';
+delete from django_migrations where app == 'eval' and name like '%auto%';
+.exit
+
+python manage.py createsuperuser
+
+pytest --cov-report term-missing --cov=eval
