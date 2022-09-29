@@ -4,8 +4,8 @@ services:
   app:
     build: .
     image: ig5_eval
-    command: python manage.py runserver 0.0.0.0:8000
+    command: python src/manage.py runserver 0.0.0.0:8000
     volumes:
-      - ./src:/code
+      - .:/code
     ports:
       - 5000:8000

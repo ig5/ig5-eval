@@ -21,17 +21,17 @@ def get_site_numbers():
 
 
 def format_seconds(
-    penalty,
+    value,
     empty_sign="&nbsp;&nbsp;",
     default_color="",
     colorful=True,
     signed=True,
 ):
 
-    if penalty == 0:
+    if value == 0:
         color = default_color
         sign = empty_sign
-    elif penalty < 0:
+    elif value < 0:
         color = "green"
         sign = "-"
     else:
@@ -44,11 +44,14 @@ def format_seconds(
     if not signed:
         sign = empty_sign
 
-    return mark_safe(
-        f'<span style="color: {color}">'
-        f"{sign}{timedelta(seconds=abs(penalty))}"
-        "</span>"
-    )
+    seconds = f"{sign}{timedelta(seconds=abs(value))}"
+
+    if colorful:
+        return mark_safe(
+            f'<span style="color: {color}">{seconds}</span>'
+        )
+
+    return mark_safe(seconds)
 
 
 def format_like_table(labels, values, distinguish_last=True):
@@ -146,11 +149,15 @@ def export_results_as_csv(queryset, export_name):
         siteresult_fields.extend(
             [
                 f"ST{siteresut.site.number} {siteresut.site.name}",
+                constants.TIME_SK,
                 constants.STOP_TIME,
+                constants.VARIANT_SK,
+                "Referencna hodnota",
+                "Namerana hodnota",
                 f"{constants.PENALTY_SK} {constants.SPEED_SK}",
                 f"{constants.PENALTY_SK} {constants.PRECISION_SK}",
+                "Korekcia",
                 f"Σ {constants.PENALTY_SK}",
-                f"Σ {constants.SITE_SK}",
             ]
         )
     fields.extend(siteresult_fields)
@@ -158,9 +165,7 @@ def export_results_as_csv(queryset, export_name):
         [
             constants.TOTAL_SK,
             constants.ROUTE_SK,
-            constants.STOP_TIME,
-            f"{constants.PENALTY_SK} {constants.SPEED_SK}",
-            f"{constants.PENALTY_SK} {constants.PRECISION_SK}",
+            f"Σ {constants.STOP_TIME}",
             f"Σ {constants.PENALTY_SK} ({constants.CATEGORY_SK} 2)",
             f"ΣΣ ({constants.CATEGORY_SK} 1)",
         ]
@@ -172,6 +177,16 @@ def export_results_as_csv(queryset, export_name):
     writer = csv.writer(response)
     writer.writerow(fields)
 
+    # per site time_penalty, precision_penalty, total_penalty
+    indexes = [6, 7, 8, 9]
+    for _ in range(4):
+        last_4 = indexes[-4:]
+        for i in last_4:
+            indexes.append(i + 10)
+
+    # total penalty
+    indexes.append(53)
+
     for obj in queryset:
         values = [obj.team]
 
@@ -181,11 +196,15 @@ def export_results_as_csv(queryset, export_name):
             siteresult_values.extend(
                 [
                     "",
+                    siteresut.time,
                     siteresut.stop_time,
+                    siteresut.variant.name if siteresut.variant else "",
+                    siteresut.variant.reference_value if siteresut.variant else "",
+                    siteresut.value,
                     siteresut.summary.time_penalty,
                     siteresut.summary.precision_penalty,
+                    siteresut.total_penalty_correction,
                     siteresut.summary.total_penalty,
-                    siteresut.summary.total_time,
                 ]
             )
         values_to_convert.extend(siteresult_values)
@@ -194,15 +213,13 @@ def export_results_as_csv(queryset, export_name):
                 "",
                 obj.route_time,
                 obj.summary.stop_time,
-                obj.summary.time_penalty,
-                obj.summary.precision_penalty,
                 obj.summary.total_penalty,
                 obj.summary.total_time,
             ]
         )
 
         for index, value in enumerate(values_to_convert):
-            if isinstance(value, str):
+            if isinstance(value, (str, float)):
                 continue
             elif value is None:
                 value = 0
@@ -212,7 +229,10 @@ def export_results_as_csv(queryset, export_name):
                 # Assuming `datetime.timedelta`.
                 value = value.seconds
 
-            values_to_convert[index] = str(timedelta(seconds=abs(value)))
+            if index in indexes:
+                values_to_convert[index] = format_seconds(value, empty_sign="", colorful=False)
+            else:
+                values_to_convert[index] = str(timedelta(seconds=abs(value)))
 
         values.extend(values_to_convert)
         writer.writerow(values)

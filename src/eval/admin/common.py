@@ -5,6 +5,10 @@ from eval import constants
 from eval.admin import utils
 
 
+ARTIFICIAL_TIME_PREFIX = 0
+# ARTIFICIAL_TIME_PREFIX = 43200 # 12 hours
+
+
 class ResultSummaryBase:
     obj_attr = ""
 
@@ -58,7 +62,9 @@ class ResultSummaryBase:
     def get_total_penalty(self, obj):
         obj = self._get_obj_attr(obj)
 
-        formatted_seconds = utils.format_seconds(obj.summary.total_penalty, "")
+        formatted_seconds = utils.format_seconds(
+            ARTIFICIAL_TIME_PREFIX + obj.summary.total_penalty, ""
+        )
 
         missed_sites = self._get_missed_sites_count(obj)
         is_dnf = missed_sites >= constants.CATEGORY_2_MISSED_SITES_DSQ
@@ -68,7 +74,7 @@ class ResultSummaryBase:
         return formatted_seconds
 
     get_total_penalty.short_description = mark_safe(
-        f"&Sigma; {constants.PENALTY_SK} ({constants.CATEGORY_SK} 2)"
+        f"&Sigma; {constants.PENALTY_SK} ({constants.CATEGORY_SK} 2 (presnost))"
     )
     # NOTE comes from annotation.
     get_total_penalty.admin_order_field = "category_2_ordering"
@@ -88,7 +94,7 @@ class ResultSummaryBase:
         return formatted_seconds
 
     get_total_time.short_description = mark_safe(
-        f"&Sigma;&Sigma; ({constants.CATEGORY_SK} 1)"
+        f"&Sigma;&Sigma; ({constants.CATEGORY_SK} 1 (rychlost))"
     )
     # NOTE comes from annotation.
     get_total_time.admin_order_field = "category_1_ordering"
