@@ -142,7 +142,12 @@ def add_dynamic_get_site_field_methods(self):
 
 
 def export_results_as_csv(queryset, export_name):
-    fields = [constants.TEAM_SK]
+    ARTIFICIAL_TIME_OFFSET = 43200  # 12 hours
+    CAT1 = f"ΣΣ ({constants.CATEGORY_SK} 1)"
+    CAT2 = f"Σ {constants.PENALTY_SK} ({constants.CATEGORY_SK} 2)"
+    CAT_2_OFFSETTED = f"{CAT2} {constants.OFFSET_SK}"
+
+    fields = [constants.ORDER_SK, constants.TEAM_SK]
 
     siteresult_fields = []
     for siteresut in queryset.first().siteresult_set.all():
@@ -152,11 +157,11 @@ def export_results_as_csv(queryset, export_name):
                 constants.TIME_SK,
                 constants.STOP_TIME,
                 constants.VARIANT_SK,
-                "Referencna hodnota",
-                "Namerana hodnota",
-                f"{constants.PENALTY_SK} {constants.SPEED_SK}",
-                f"{constants.PENALTY_SK} {constants.PRECISION_SK}",
-                "Korekcia",
+                constants.REFERENCE_VALUE_SK,
+                constants.MEASSURED_VALUE_SK,
+                constants.PENALTY_SPEED_SK,
+                constants.PENALTY_PRECISION_SK,
+                constants.CORRECTION_SK,
                 f"Σ {constants.PENALTY_SK}",
             ]
         )
@@ -166,8 +171,9 @@ def export_results_as_csv(queryset, export_name):
             constants.TOTAL_SK,
             constants.ROUTE_SK,
             f"Σ {constants.STOP_TIME}",
-            f"Σ {constants.PENALTY_SK} ({constants.CATEGORY_SK} 2)",
-            f"ΣΣ ({constants.CATEGORY_SK} 1)",
+            CAT2,
+            CAT_2_OFFSETTED,
+            CAT1,
         ]
     )
 
@@ -177,20 +183,18 @@ def export_results_as_csv(queryset, export_name):
     writer = csv.writer(response)
     writer.writerow(fields)
 
-    # per site time_penalty, precision_penalty, total_penalty
-    indexes = [6, 7, 8, 9]
-    for _ in range(4):
-        last_4 = indexes[-4:]
-        for i in last_4:
-            indexes.append(i + 10)
+    fields_to_convert = {
+        constants.MEASSURED_VALUE_SK,
+        constants.PENALTY_SPEED_SK,
+        constants.PENALTY_PRECISION_SK,
+        constants.CORRECTION_SK,
+        CAT2,
+    }
+    indexes_to_convert = [index for index, field in enumerate(fields) if field in fields_to_convert]
 
-    # total penalty
-    indexes.append(53)
+    for final_position, obj in enumerate(queryset, start=1):
+        values = [f"{final_position}.", obj.team]
 
-    for obj in queryset:
-        values = [obj.team]
-
-        values_to_convert = []
         siteresult_values = []
         for siteresut in obj.siteresult_set.all():
             siteresult_values.extend(
@@ -207,18 +211,19 @@ def export_results_as_csv(queryset, export_name):
                     siteresut.summary.total_penalty,
                 ]
             )
-        values_to_convert.extend(siteresult_values)
-        values_to_convert.extend(
+        values.extend(siteresult_values)
+        values.extend(
             [
                 "",
                 obj.route_time,
                 obj.summary.stop_time,
                 obj.summary.total_penalty,
+                ARTIFICIAL_TIME_OFFSET + obj.summary.total_penalty,
                 obj.summary.total_time,
             ]
         )
 
-        for index, value in enumerate(values_to_convert):
+        for index, value in enumerate(values):
             if isinstance(value, (str, float)):
                 continue
             elif value is None:
@@ -229,12 +234,11 @@ def export_results_as_csv(queryset, export_name):
                 # Assuming `datetime.timedelta`.
                 value = value.seconds
 
-            if index in indexes:
-                values_to_convert[index] = format_seconds(value, empty_sign="", colorful=False)
+            if index in indexes_to_convert:
+                values[index] = format_seconds(value, empty_sign="", colorful=False)
             else:
-                values_to_convert[index] = str(timedelta(seconds=abs(value)))
+                values[index] = str(timedelta(seconds=abs(value)))
 
-        values.extend(values_to_convert)
         writer.writerow(values)
 
     return response

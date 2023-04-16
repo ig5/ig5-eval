@@ -5,10 +5,6 @@ from eval import constants
 from eval.admin import utils
 
 
-ARTIFICIAL_TIME_PREFIX = 0
-# ARTIFICIAL_TIME_PREFIX = 43200 # 12 hours
-
-
 class ResultSummaryBase:
     obj_attr = ""
 
@@ -62,9 +58,7 @@ class ResultSummaryBase:
     def get_total_penalty(self, obj):
         obj = self._get_obj_attr(obj)
 
-        formatted_seconds = utils.format_seconds(
-            ARTIFICIAL_TIME_PREFIX + obj.summary.total_penalty, ""
-        )
+        formatted_seconds = utils.format_seconds(obj.summary.total_penalty, "")
 
         missed_sites = self._get_missed_sites_count(obj)
         is_dnf = missed_sites >= constants.CATEGORY_2_MISSED_SITES_DSQ
